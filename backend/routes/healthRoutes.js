@@ -1,0 +1,1 @@
+const r=require('express').Router(),m=require('mongoose');r.get('/',(req,res)=>res.json({success:true,api:'ok',database:{connected:m.connection.readyState===1,state:m.connection.readyState}}));module.exports=r;

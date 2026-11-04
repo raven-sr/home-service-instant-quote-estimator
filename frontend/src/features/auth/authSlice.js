@@ -1,0 +1,7 @@
+import {createAsyncThunk,createSlice} from '@reduxjs/toolkit'; import api from '../../services/api';
+export const fetchMe=createAsyncThunk('auth/me',async()=>{const {data}=await api.get('/auth/me');return data.user;});
+export const loginUser=createAsyncThunk('auth/login',async(payload,{rejectWithValue})=>{try{const {data}=await api.post('/auth/login',payload);return data.user;}catch(e){return rejectWithValue(e.response?.data?.message||'Login failed');}});
+export const registerUser=createAsyncThunk('auth/register',async(payload,{rejectWithValue})=>{try{const {data}=await api.post('/auth/register',payload);return data.user;}catch(e){return rejectWithValue(e.response?.data?.message||'Registration failed');}});
+export const logoutUser=createAsyncThunk('auth/logout',async()=>{await api.post('/auth/logout');});
+const slice=createSlice({name:'auth',initialState:{user:null,loading:false,checking:true,error:null},reducers:{},extraReducers:b=>{b.addCase(fetchMe.fulfilled,(s,a)=>{s.user=a.payload;s.checking=false}).addCase(fetchMe.rejected,s=>{s.user=null;s.checking=false}).addCase(loginUser.pending,s=>{s.loading=true;s.error=null}).addCase(loginUser.fulfilled,(s,a)=>{s.loading=false;s.user=a.payload}).addCase(loginUser.rejected,(s,a)=>{s.loading=false;s.error=a.payload}).addCase(registerUser.pending,s=>{s.loading=true;s.error=null}).addCase(registerUser.fulfilled,(s,a)=>{s.loading=false;s.user=a.payload}).addCase(registerUser.rejected,(s,a)=>{s.loading=false;s.error=a.payload}).addCase(logoutUser.fulfilled,s=>{s.user=null});}});
+export default slice.reducer;

@@ -1,0 +1,1 @@
+exports.notFound=(req,res,next)=>{res.status(404);next(new Error('Route not found: '+req.originalUrl));};exports.errorHandler=(err,req,res,next)=>res.status(res.statusCode&&res.statusCode!==200?res.statusCode:err.statusCode||500).json({success:false,message:err.message||'Server error'});
