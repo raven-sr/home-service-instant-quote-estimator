@@ -18,47 +18,60 @@ const app = express();
 // ==========================================
 
 const allowedOrigins = [
-  process.env.CLIENT_URL,
+  "https://home-service-instant-quote-estimator.vercel.app",
   "http://localhost:5173",
   "http://127.0.0.1:5173",
-]
-  .filter(Boolean)
-  .map((url) => url.trim().replace(/\/$/, ""));
+];
 
 function isAllowedOrigin(origin) {
-  if (allowedOrigins.includes(origin)) {
-    return true;
-  }
+  if (!origin) return true;
+
+  let normalizedOrigin;
 
   try {
-    const url = new URL(origin);
-
-    // Allow Vercel preview deployments for this project
-    const hostname = url.hostname;
-
-    return (
-      url.protocol === "https:" &&
-      hostname.startsWith("home-service-instant-quote-estimator-") &&
-      hostname.endsWith(".vercel.app")
-    );
+    normalizedOrigin = new URL(origin).origin;
   } catch {
     return false;
   }
+
+  // Main production domain
+  if (allowedOrigins.includes(normalizedOrigin)) {
+    return true;
+  }
+
+  // Vercel preview deployments for this project
+  const isVercelPreview =
+    /^https:\/\/home-service-instant-quote-estimator-[a-z0-9-]+\.vercel\.app$/.test(
+      normalizedOrigin
+    );
+
+  return isVercelPreview;
 }
 
 app.use(
   cors({
     origin: (origin, callback) => {
-      if (!origin || isAllowedOrigin(origin)) {
+      if (isAllowedOrigin(origin)) {
+        console.log("Allowed CORS origin:", origin || "No origin");
         return callback(null, true);
       }
 
       console.log("Blocked CORS origin:", origin);
-      return callback(null, false);
+      return callback(new Error("Not allowed by CORS"));
     },
     credentials: true,
-    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
+    methods: [
+      "GET",
+      "POST",
+      "PUT",
+      "PATCH",
+      "DELETE",
+      "OPTIONS",
+    ],
+    allowedHeaders: [
+      "Content-Type",
+      "Authorization",
+    ],
   })
 );
 
@@ -86,7 +99,9 @@ app.get("/", (req, res) => {
 // ==========================================
 
 app.use("/api/health", require("./routes/healthRoutes"));
+
 app.use("/api/auth", require("./routes/authRoutes"));
+
 app.use("/api/estimations", require("./routes/estimationRoutes"));
 
 // ==========================================
@@ -94,6 +109,7 @@ app.use("/api/estimations", require("./routes/estimationRoutes"));
 // ==========================================
 
 app.use(notFound);
+
 app.use(errorHandler);
 
 // ==========================================
