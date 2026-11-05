@@ -17,8 +17,18 @@ const app = express();
 // CORS CONFIGURATION
 // ==========================================
 
+const clientUrl = process.env.CLIENT_URL;
+
+if (!clientUrl) {
+  console.error("CLIENT_URL is missing from environment variables.");
+  process.exit(1);
+}
+
+const productionOrigin = new URL(clientUrl).origin;
+const productionHostname = new URL(clientUrl).hostname;
+
 const allowedOrigins = [
-  "https://home-service-instant-quote-estimator.vercel.app",
+  productionOrigin,
   "http://localhost:5173",
   "http://127.0.0.1:5173",
 ];
@@ -26,24 +36,29 @@ const allowedOrigins = [
 function isAllowedOrigin(origin) {
   if (!origin) return true;
 
-  let normalizedOrigin;
+  let requestUrl;
 
   try {
-    normalizedOrigin = new URL(origin).origin;
+    requestUrl = new URL(origin);
   } catch {
     return false;
   }
 
-  // Main production domain
+  const normalizedOrigin = requestUrl.origin;
+
+  // Exact production and local origins
   if (allowedOrigins.includes(normalizedOrigin)) {
     return true;
   }
 
-  // Vercel preview deployments for this project
+  // Allow this project's Vercel deployment domains
+  const projectPrefix =
+    productionHostname.replace(".vercel.app", "") + "-";
+
   const isVercelPreview =
-    /^https:\/\/home-service-instant-quote-estimator-[a-z0-9-]+\.vercel\.app$/.test(
-      normalizedOrigin
-    );
+    requestUrl.protocol === "https:" &&
+    requestUrl.hostname.endsWith(".vercel.app") &&
+    requestUrl.hostname.startsWith(projectPrefix);
 
   return isVercelPreview;
 }
@@ -99,9 +114,7 @@ app.get("/", (req, res) => {
 // ==========================================
 
 app.use("/api/health", require("./routes/healthRoutes"));
-
 app.use("/api/auth", require("./routes/authRoutes"));
-
 app.use("/api/estimations", require("./routes/estimationRoutes"));
 
 // ==========================================
@@ -109,7 +122,6 @@ app.use("/api/estimations", require("./routes/estimationRoutes"));
 // ==========================================
 
 app.use(notFound);
-
 app.use(errorHandler);
 
 // ==========================================
@@ -127,6 +139,7 @@ connectDB()
     app.listen(PORT, "0.0.0.0", () => {
       console.log(`Server running on port ${PORT}`);
       console.log("MongoDB connected successfully");
+      console.log("Production frontend origin:", productionOrigin);
       console.log("Allowed frontend origins:", allowedOrigins);
     });
   })
