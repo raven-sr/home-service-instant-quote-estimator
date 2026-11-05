@@ -25,23 +25,36 @@ const allowedOrigins = [
   .filter(Boolean)
   .map((url) => url.trim().replace(/\/$/, ""));
 
+function isAllowedOrigin(origin) {
+  if (allowedOrigins.includes(origin)) {
+    return true;
+  }
+
+  try {
+    const url = new URL(origin);
+
+    // Allow Vercel preview deployments for this project
+    const hostname = url.hostname;
+
+    return (
+      url.protocol === "https:" &&
+      hostname.startsWith("home-service-instant-quote-estimator-") &&
+      hostname.endsWith(".vercel.app")
+    );
+  } catch {
+    return false;
+  }
+}
+
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Allow requests without an Origin header
-      if (!origin) {
-        return callback(null, true);
-      }
-
-      const normalizedOrigin = origin.replace(/\/$/, "");
-
-      if (allowedOrigins.includes(normalizedOrigin)) {
+      if (!origin || isAllowedOrigin(origin)) {
         return callback(null, true);
       }
 
       console.log("Blocked CORS origin:", origin);
-
-      return callback(new Error("Not allowed by CORS"));
+      return callback(null, false);
     },
     credentials: true,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
@@ -73,9 +86,7 @@ app.get("/", (req, res) => {
 // ==========================================
 
 app.use("/api/health", require("./routes/healthRoutes"));
-
 app.use("/api/auth", require("./routes/authRoutes"));
-
 app.use("/api/estimations", require("./routes/estimationRoutes"));
 
 // ==========================================
@@ -83,7 +94,6 @@ app.use("/api/estimations", require("./routes/estimationRoutes"));
 // ==========================================
 
 app.use(notFound);
-
 app.use(errorHandler);
 
 // ==========================================
