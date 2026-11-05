@@ -1,1 +1,23 @@
-const mongoose=require('mongoose');module.exports=async function connectDB(){if(!process.env.MONGO_URI){console.warn('MONGO_URI missing; database features unavailable');return false;}try{await mongoose.connect(process.env.MONGO_URI);console.log('MongoDB connected');return true;}catch(e){console.error('MongoDB connection failed:',e.message);return false;}};
+
+const mongoose = require("mongoose");
+
+const connectDB = async () => {
+  const mongoURI = process.env.MONGO_URI || process.env.MONGO_URL;
+
+  if (!mongoURI) {
+    throw new Error("MONGO_URI or MONGO_URL is missing.");
+  }
+
+  try {
+    await mongoose.connect(mongoURI);
+
+    console.log("MongoDB connected successfully");
+
+    return true;
+  } catch (error) {
+    console.error("MongoDB connection failed:", error.message);
+    throw error;
+  }
+};
+
+module.exports = connectDB;

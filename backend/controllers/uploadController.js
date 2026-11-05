@@ -9,7 +9,10 @@ const {
 const EstimationRequest = require("../models/EstimationRequest");
 const gemini = require("../config/gemini");
 
-// Image upload configuration
+// ==========================================
+// IMAGE UPLOAD CONFIGURATION
+// ==========================================
+
 exports.upload = multer({
   storage: multer.memoryStorage(),
 
@@ -18,15 +21,29 @@ exports.upload = multer({
   },
 
   fileFilter: (req, file, cb) => {
-    if (file.mimetype.startsWith("image/")) {
+    const allowedTypes = [
+      "image/jpeg",
+      "image/png",
+      "image/webp",
+      "image/jpg",
+    ];
+
+    if (allowedTypes.includes(file.mimetype)) {
       cb(null, true);
     } else {
-      cb(new Error("Only image files are allowed."));
+      cb(
+        new Error(
+          "Only JPG, JPEG, PNG and WEBP images are allowed."
+        )
+      );
     }
   },
 });
 
-// Upload image to Cloudinary
+// ==========================================
+// UPLOAD IMAGE TO CLOUDINARY
+// ==========================================
+
 function uploadToCloudinary(buffer) {
   return new Promise((resolve, reject) => {
     const stream = cloudinary.uploader.upload_stream(
@@ -47,11 +64,24 @@ function uploadToCloudinary(buffer) {
   });
 }
 
-// Analyse house image using Gemini
-async function analyzeHouseImage(imageUrl, serviceType) {
+// ==========================================
+// GEMINI IMAGE ANALYSIS
+// ==========================================
+
+async function analyzeHouseImage(
+  buffer,
+  mimeType,
+  serviceType
+) {
   if (!process.env.GEMINI_API_KEY) {
     return "Image uploaded successfully. Gemini API key is not configured.";
   }
+
+  if (!process.env.GEMINI_MODEL) {
+    return "Image uploaded successfully. Gemini model is not configured.";
+  }
+
+  const base64Image = buffer.toString("base64");
 
   const response = await gemini.models.generateContent({
     model: process.env.GEMINI_MODEL,
@@ -59,33 +89,39 @@ async function analyzeHouseImage(imageUrl, serviceType) {
     contents: [
       {
         role: "user",
+
         parts: [
           {
             text: `
-You are a home-service property image analyst.
+You are a professional home-service property image analyst.
 
 Analyse this house photograph for a ${serviceType} project.
 
-Provide:
-1. Visible property features.
-2. Roof type and visible roofing material, if identifiable.
-3. Visible exterior wall conditions.
-4. Visible signs of deterioration.
-5. Possible maintenance requirements.
-6. Additional information required to prepare an estimate.
+Provide the analysis using these headings:
+
+1. Visible Property Features
+2. Roof Type and Material
+3. Exterior Wall Conditions
+4. Visible Signs of Deterioration
+5. Possible Maintenance Requirements
+6. Additional Information Required for Estimation
 
 Important rules:
+
 - Do not invent measurements or dimensions.
 - Do not calculate roof area from an ordinary photograph.
 - Do not invent prices or material quantities.
 - Do not claim to detect hidden structural damage.
 - Clearly mention when something cannot be identified.
+- Only describe visually observable features.
+- Recommend professional inspection when necessary.
             `,
           },
+
           {
-            fileData: {
-              fileUri: imageUrl,
-              mimeType: "image/jpeg",
+            inlineData: {
+              mimeType: mimeType,
+              data: base64Image,
             },
           },
         ],
@@ -93,19 +129,27 @@ Important rules:
     ],
   });
 
-  return response.text || "No image analysis was returned.";
+  return (
+    response.text ||
+    "No image analysis was returned."
+  );
 }
 
-// Save image and AI analysis
+// ==========================================
+// SAVE IMAGE AND AI ANALYSIS
+// ==========================================
+
 exports.saveImage = async (req, res) => {
   try {
+    // Check Cloudinary configuration
     if (!cloudinaryConfigured) {
       return res.status(503).json({
         success: false,
-        message: "Configure Cloudinary in backend/.env",
+        message: "Cloudinary is not configured.",
       });
     }
 
+    // Check uploaded image
     if (!req.file) {
       return res.status(400).json({
         success: false,
@@ -113,6 +157,7 @@ exports.saveImage = async (req, res) => {
       });
     }
 
+    // Find homeowner's estimation request
     const request = await EstimationRequest.findOne({
       _id: req.params.id,
       homeowner: req.user._id,
@@ -136,38 +181,47 @@ exports.saveImage = async (req, res) => {
     // 2. Analyse image using Gemini
     try {
       analysis = await analyzeHouseImage(
-        uploadedImage.secure_url,
-        request.serviceType
+        req.file.buffer,
+        req.file.mimetype,
+         request.serviceType
       );
     } catch (error) {
-      console.error("Gemini Image Analysis Error:", error.message);
+      console.error(
+        "Gemini Image Analysis Error:",
+        error.message
+      );
 
       analysis =
-        "Image saved successfully, but Gemini analysis failed: " +
-        error.message;
+        "Image saved successfully, but Gemini analysis failed. Please try again later.";
     }
 
     // 3. Save image and analysis in MongoDB
     request.images.push({
       url: uploadedImage.secure_url,
       publicId: uploadedImage.public_id,
-      analysis,
+      analysis: analysis,
     });
 
     await request.save();
 
+    // 4. Send response
     return res.status(201).json({
       success: true,
       message: "Image uploaded successfully.",
-      image: request.images[request.images.length - 1],
+      image: request.images[
+        request.images.length - 1
+      ],
     });
 
   } catch (error) {
-    console.error("Image Upload Error:", error.message);
+    console.error(
+      "Image Upload Error:",
+      error.message
+    );
 
     return res.status(500).json({
       success: false,
-      message: error.message || "Image upload failed.",
+      message: "Image upload failed. Please try again.",
     });
   }
 };
