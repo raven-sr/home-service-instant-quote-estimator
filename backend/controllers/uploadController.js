@@ -129,10 +129,68 @@ Important rules:
     ],
   });
 
-  return (
-    response.text ||
-    "No image analysis was returned."
-  );
+  return response.text || "No image analysis was returned.";
+}
+
+// ==========================================
+// BACKGROUND IMAGE ANALYSIS
+// ==========================================
+
+async function processImageAnalysis({
+  buffer,
+  mimeType,
+  serviceType,
+  requestId,
+  publicId,
+}) {
+  try {
+    console.log("Starting Gemini image analysis...");
+
+    const analysis = await analyzeHouseImage(
+      buffer,
+      mimeType,
+      serviceType
+    );
+
+    await EstimationRequest.updateOne(
+      {
+        _id: requestId,
+        "images.publicId": publicId,
+      },
+      {
+        $set: {
+          "images.$.analysis": analysis,
+        },
+      }
+    );
+
+    console.log("Gemini analysis completed and saved.");
+  } catch (error) {
+    console.error(
+      "Gemini Background Analysis Error:",
+      error.message
+    );
+
+    try {
+      await EstimationRequest.updateOne(
+        {
+          _id: requestId,
+          "images.publicId": publicId,
+        },
+        {
+          $set: {
+            "images.$.analysis":
+              "Image saved successfully, but Gemini analysis failed. Please try again later.",
+          },
+        }
+      );
+    } catch (dbError) {
+      console.error(
+        "Failed to update image analysis status:",
+        dbError.message
+      );
+    }
+  }
 }
 
 // ==========================================
@@ -157,6 +215,8 @@ exports.saveImage = async (req, res) => {
       });
     }
 
+    console.log("1. Image received by backend.");
+
     // Find homeowner's estimation request
     const request = await EstimationRequest.findOne({
       _id: req.params.id,
@@ -170,58 +230,60 @@ exports.saveImage = async (req, res) => {
       });
     }
 
-    // 1. Upload image to Cloudinary
+    console.log("2. Estimation request found.");
+
+    // Preserve image data for background processing
+    const imageBuffer = req.file.buffer;
+    const mimeType = req.file.mimetype;
+    const serviceType = request.serviceType;
+    const requestId = request._id;
+
+    // Upload image to Cloudinary
     const uploadedImage = await uploadToCloudinary(
-      req.file.buffer
+      imageBuffer
     );
 
-    let analysis =
-      "Image uploaded successfully. Analysis is not available.";
+    console.log("3. Cloudinary upload completed.");
 
-    // 2. Analyse image using Gemini
-    try {
-      analysis = await analyzeHouseImage(
-        req.file.buffer,
-        req.file.mimetype,
-         request.serviceType
-      );
-    } catch (error) {
-      console.error(
-        "Gemini Image Analysis Error:",
-        error.message
-      );
-
-      analysis =
-        "Image saved successfully, but Gemini analysis failed. Please try again later.";
-    }
-
-    // 3. Save image and analysis in MongoDB
+    // Save image in MongoDB first
     request.images.push({
       url: uploadedImage.secure_url,
       publicId: uploadedImage.public_id,
-      analysis: analysis,
+      analysis: "Image uploaded. AI analysis is processing...",
     });
 
     await request.save();
 
-    // 4. Send response
-    return res.status(201).json({
+    const savedImage =
+      request.images[request.images.length - 1];
+
+    console.log("4. Image saved in MongoDB.");
+
+    // Respond immediately without waiting for Gemini
+    res.status(201).json({
       success: true,
-      message: "Image uploaded successfully.",
-      image: request.images[
-        request.images.length - 1
-      ],
+      message:
+        "Image uploaded successfully. AI analysis is processing.",
+      image: savedImage,
+    });
+
+    // Run Gemini analysis in the background
+    processImageAnalysis({
+      buffer: imageBuffer,
+      mimeType,
+      serviceType,
+      requestId,
+      publicId: uploadedImage.public_id,
     });
 
   } catch (error) {
-    console.error(
-      "Image Upload Error:",
-      error.message
-    );
+    console.error("Image Upload Error:", error);
 
-    return res.status(500).json({
-      success: false,
-      message: "Image upload failed. Please try again.",
-    });
+    if (!res.headersSent) {
+      return res.status(500).json({
+        success: false,
+        message: "Image upload failed. Please try again.",
+      });
+    }
   }
 };

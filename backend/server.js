@@ -116,6 +116,14 @@ app.get("/", (req, res) => {
 app.use("/api/health", require("./routes/healthRoutes"));
 app.use("/api/auth", require("./routes/authRoutes"));
 app.use("/api/estimations", require("./routes/estimationRoutes"));
+app.use("/api/contractors", require("./routes/contractorRoutes"));
+app.use("/api/contractor-pricing",require("./routes/contractorPricingRoutes"));
+app.use("/api/roofing", require("./routes/roofingRoutes"));
+app.use("/api/contractor-requests",require("./routes/contractorRequestRoutes"));
+app.use("/api/painting", require("./routes/paintingRoutes"));
+app.use("/api/quotations", require("./routes/quotationRoutes"));
+app.use("/api/quotations", require("./routes/quotationRoutes"));
+app.use("/api/admin", require("./routes/AdminRoutes"));
 
 // ==========================================
 // ERROR HANDLING

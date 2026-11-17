@@ -1,13 +1,9 @@
-// import {useState} from 'react';import {Link,useNavigate} from 'react-router-dom';import {useDispatch,useSelector} from 'react-redux';import {loginUser,registerUser} from '../features/auth/authSlice';
-// export default function AuthPage({mode}){const reg=mode==='register';const [form,setForm]=useState({name:'',email:'',password:''});const dispatch=useDispatch(),nav=useNavigate();const {loading,error}=useSelector(s=>s.auth);const change=e=>setForm({...form,[e.target.name]:e.target.value});const submit=async e=>{e.preventDefault();const result=await dispatch(reg?registerUser(form):loginUser({email:form.email,password:form.password}));if(result.meta.requestStatus==='fulfilled')nav('/dashboard');};return <div className="page-wrap"><div className="container"><div className="panel p-4 mx-auto" style={{maxWidth:480}}><h2>{reg?'Create your account':'Welcome back'}</h2><form onSubmit={submit}>{reg&&<div className="mb-3"><label className="form-label">Name</label><input className="form-control" name="name" value={form.name} onChange={change} required/></div>}<div className="mb-3"><label className="form-label">Email</label><input className="form-control" type="email" name="email" value={form.email} onChange={change} required/></div><div className="mb-3"><label className="form-label">Password</label><input className="form-control" type="password" minLength="8" name="password" value={form.password} onChange={change} required/></div>{error&&<div className="alert alert-danger">{error}</div>}<button className="btn btn-primary w-100" disabled={loading}>{loading?'Please wait...':reg?'Create account':'Sign in'}</button></form><p className="mt-3 mb-0">{reg?'Already registered?':'New here?'} <Link to={reg?'/login':'/register'}>{reg?'Sign in':'Create account'}</Link></p></div></div></div>;}
-
-
-
 
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { loginUser, registerUser } from "../features/auth/authSlice";
+
 import {
   FaHome,
   FaEnvelope,
@@ -25,6 +21,7 @@ export default function AuthPage({ mode }) {
     name: "",
     email: "",
     password: "",
+    role: "homeowner",
   });
 
   const [showPassword, setShowPassword] = useState(false);
@@ -54,7 +51,20 @@ export default function AuthPage({ mode }) {
     );
 
     if (result.meta.requestStatus === "fulfilled") {
-      nav("/dashboard");
+      if (reg) {
+        nav("/dashboard");
+        return;
+      }
+
+      const user = result.payload?.user || result.payload;
+
+      if (user?.role === "admin") {
+        nav("/admin");
+      } else if (user?.role === "contractor") {
+        nav("/contractor/requests");
+      } else {
+        nav("/dashboard");
+      }
     }
   };
 
@@ -113,6 +123,7 @@ export default function AuthPage({ mode }) {
               <div className="auth-brand-footer">
                 © 2026 HomeEstimate. All rights reserved.
               </div>
+
             </div>
           </div>
 
@@ -135,7 +146,9 @@ export default function AuthPage({ mode }) {
                 </span>
 
                 <h2>
-                  {reg ? "Create your account" : "Sign in to your account"}
+                  {reg
+                    ? "Create your account"
+                    : "Sign in to your account"}
                 </h2>
 
                 <p>
@@ -147,6 +160,7 @@ export default function AuthPage({ mode }) {
 
               <form onSubmit={submit}>
 
+                {/* Name */}
                 {reg && (
                   <div className="mb-4">
                     <label className="form-label">
@@ -169,6 +183,42 @@ export default function AuthPage({ mode }) {
                   </div>
                 )}
 
+                {/* Account type */}
+                {reg && (
+                  <div className="mb-4">
+                    <label className="form-label">
+                      Register as
+                    </label>
+
+                    <div className="auth-input-wrapper">
+                      <FaUser className="auth-input-icon" />
+
+                      <select
+                        className="form-select auth-input"
+                        name="role"
+                        value={form.role}
+                        onChange={change}
+                        required
+                      >
+                        <option value="homeowner">
+                          Homeowner
+                        </option>
+
+                        <option value="contractor">
+                          Contractor
+                        </option>
+                      </select>
+                    </div>
+
+                    <small className="text-muted mt-2 d-block">
+                      {form.role === "homeowner"
+                        ? "Choose this if you want to plan and estimate your home projects."
+                        : "Choose this if you provide roofing or painting services."}
+                    </small>
+                  </div>
+                )}
+
+                {/* Email */}
                 <div className="mb-4">
                   <label className="form-label">
                     Email address
@@ -189,6 +239,7 @@ export default function AuthPage({ mode }) {
                   </div>
                 </div>
 
+                {/* Password */}
                 <div className="mb-4">
                   <label className="form-label">
                     Password
@@ -211,9 +262,13 @@ export default function AuthPage({ mode }) {
                     <button
                       type="button"
                       className="auth-password-toggle"
-                      onClick={() => setShowPassword(!showPassword)}
+                      onClick={() =>
+                        setShowPassword(!showPassword)
+                      }
                       aria-label={
-                        showPassword ? "Hide password" : "Show password"
+                        showPassword
+                          ? "Hide password"
+                          : "Show password"
                       }
                     >
                       {showPassword ? <FaEyeSlash /> : <FaEye />}
@@ -221,12 +276,14 @@ export default function AuthPage({ mode }) {
                   </div>
                 </div>
 
+                {/* Error */}
                 {error && (
                   <div className="alert alert-danger auth-error">
                     {error}
                   </div>
                 )}
 
+                {/* Submit */}
                 <button
                   type="submit"
                   className="btn auth-submit-btn w-100"

@@ -1,14 +1,10 @@
-// import {useEffect,useState} from 'react';import {Link} from 'react-router-dom';import api from '../services/api';
-// export default function DashboardPage(){const [items,setItems]=useState([]),[error,setError]=useState('');useEffect(()=>{api.get('/estimations').then(r=>setItems(r.data.requests)).catch(e=>setError(e.response?.data?.message||'Unable to load requests'));},[]);return <div className="page-wrap"><div className="container"><div className="d-flex justify-content-between mb-4"><div><h2>Homeowner dashboard</h2><p className="text-secondary">Your estimation requests</p></div><Link className="btn btn-primary align-self-start" to="/new-estimate">+ New estimate</Link></div>{error&&<div className="alert alert-danger">{error}</div>}{items.length===0?<div className="panel p-5 text-center"><h5>No requests yet</h5><Link className="btn btn-primary mt-2" to="/new-estimate">Create request</Link></div>:<div className="row g-3">{items.map(x=><div className="col-md-6" key={x._id}><div className="panel p-4"><h5 className="text-capitalize">{x.serviceType}</h5><p>{x.propertyAddress}</p><span className="badge text-bg-info">{x.status}</span><div><Link className="btn btn-outline-primary btn-sm mt-3" to={`/requests/${x._id}`}>Open request</Link></div></div></div>)}</div>}</div></div>;}
-
-
 
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+
 import {
   FaPlus,
   FaHome,
-  FaTools,
   FaPaintRoller,
   FaClock,
   FaArrowRight,
@@ -18,45 +14,88 @@ import {
   FaHourglassHalf,
   FaExclamationCircle,
   FaSyncAlt,
+  FaFileInvoiceDollar,
 } from "react-icons/fa";
+
+import {
+  getMyQuotations,
+  downloadQuotationPDF,
+} from "../services/api";
+
 import api from "../services/api";
 
 export default function DashboardPage() {
   const [items, setItems] = useState([]);
+  const [quotations, setQuotations] = useState({});
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
+  const [downloadingId, setDownloadingId] = useState(null);
+
+  // DOWNLOAD QUOTATION PDF
+  const handleDownloadPDF = async (quotationId) => {
+    try {
+      setError("");
+      setDownloadingId(quotationId);
+
+      await downloadQuotationPDF(quotationId);
+    } catch (error) {
+      console.error("PDF download error:", error);
+
+      setError(
+        error.response?.data?.message ||
+          "Unable to download quotation PDF."
+      );
+    } finally {
+      setDownloadingId(null);
+    }
+  };
+
+  // FETCH REQUESTS AND QUOTATIONS
+  const fetchDashboardData = async () => {
+    try {
+      setError("");
+
+      const [requestResponse, quotationResponse] =
+        await Promise.all([
+          api.get("/estimations"),
+          getMyQuotations(),
+        ]);
+
+      const requests = requestResponse.data.requests || [];
+      const quotationList = quotationResponse.quotations || [];
+
+      setItems(requests);
+
+      // Match quotations with estimation request IDs
+      const quotationMap = {};
+
+      quotationList.forEach((quotation) => {
+        const requestId =
+          typeof quotation.estimationRequest === "object"
+            ? quotation.estimationRequest?._id
+            : quotation.estimationRequest;
+
+        if (requestId) {
+          quotationMap[requestId] = quotation;
+        }
+      });
+
+      setQuotations(quotationMap);
+    } catch (err) {
+      setError(
+        err.response?.data?.message ||
+          "Unable to load your dashboard."
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    let active = true;
-
-    const fetchRequests = async () => {
-      try {
-        const response = await api.get("/estimations");
-
-        if (active) {
-          setItems(response.data.requests || []);
-          setError("");
-        }
-      } catch (e) {
-        if (active) {
-          setError(
-            e.response?.data?.message ||
-              "Unable to load your estimation requests."
-          );
-        }
-      } finally {
-        if (active) setLoading(false);
-      }
-    };
-
-    fetchRequests();
-
-    return () => {
-      active = false;
-    };
+    fetchDashboardData();
   }, []);
 
-  // Dashboard statistics
+  // DASHBOARD STATISTICS
   const totalRequests = items.length;
 
   const roofingCount = items.filter(
@@ -67,15 +106,23 @@ export default function DashboardPage() {
     (x) => x.serviceType?.toLowerCase() === "painting"
   ).length;
 
-  const pendingCount = items.filter(
-    (x) => x.status?.toLowerCase() === "pending"
+  const pendingCount = items.filter((x) =>
+    ["submitted", "under_review", "awaiting_measurements"].includes(
+      x.status?.toLowerCase()
+    )
   ).length;
 
-  // Status styling
+  const quotationCount = Object.keys(quotations).length;
+
+  // STATUS STYLING
   const getStatus = (status) => {
     const value = status?.toLowerCase();
 
-    if (value === "completed" || value === "approved") {
+    if (
+      value === "quoted" ||
+      value === "completed" ||
+      value === "approved"
+    ) {
       return {
         className: "status-completed",
         icon: <FaCheckCircle />,
@@ -83,7 +130,7 @@ export default function DashboardPage() {
       };
     }
 
-    if (value === "pending") {
+    if (value === "submitted" || value === "pending") {
       return {
         className: "status-pending",
         icon: <FaHourglassHalf />,
@@ -106,6 +153,7 @@ export default function DashboardPage() {
     };
   };
 
+  // SERVICE ICON
   const getServiceIcon = (serviceType) => {
     return serviceType?.toLowerCase() === "roofing" ? (
       <FaHome />
@@ -114,11 +162,25 @@ export default function DashboardPage() {
     );
   };
 
+  // CURRENCY FORMAT
+  const formatCurrency = (amount) =>
+    Number(amount || 0).toLocaleString("en-IN", {
+      maximumFractionDigits: 2,
+    });
+
+  if (loading) {
+    return (
+      <div className="container py-5">
+        Loading your dashboard...
+      </div>
+    );
+  }
+
   return (
     <div className="dashboard-page">
       <div className="container py-5">
 
-        {/* Dashboard Header */}
+        {/* DASHBOARD HEADER */}
         <div className="dashboard-header d-flex justify-content-between align-items-center flex-wrap gap-3">
           <div>
             <span className="dashboard-eyebrow">
@@ -141,21 +203,21 @@ export default function DashboardPage() {
           </Link>
         </div>
 
-        {/* Error */}
+        {/* ERROR */}
         {error && (
           <div className="alert alert-danger d-flex align-items-center justify-content-between">
             <span>{error}</span>
 
             <button
               className="btn btn-sm btn-outline-danger"
-              onClick={() => window.location.reload()}
+              onClick={fetchDashboardData}
             >
               <FaSyncAlt /> Retry
             </button>
           </div>
         )}
 
-        {/* Statistics */}
+        {/* STATISTICS */}
         <div className="row g-3 mb-5">
 
           <div className="col-6 col-lg-3">
@@ -165,9 +227,7 @@ export default function DashboardPage() {
               </div>
 
               <span>Total Requests</span>
-
-              <h3>{loading ? "—" : totalRequests}</h3>
-
+              <h3>{totalRequests}</h3>
               <small>All your projects</small>
             </div>
           </div>
@@ -179,9 +239,7 @@ export default function DashboardPage() {
               </div>
 
               <span>Roofing</span>
-
-              <h3>{loading ? "—" : roofingCount}</h3>
-
+              <h3>{roofingCount}</h3>
               <small>Roofing projects</small>
             </div>
           </div>
@@ -193,9 +251,7 @@ export default function DashboardPage() {
               </div>
 
               <span>Painting</span>
-
-              <h3>{loading ? "—" : paintingCount}</h3>
-
+              <h3>{paintingCount}</h3>
               <small>Painting projects</small>
             </div>
           </div>
@@ -207,47 +263,28 @@ export default function DashboardPage() {
               </div>
 
               <span>Pending</span>
-
-              <h3>{loading ? "—" : pendingCount}</h3>
-
+              <h3>{pendingCount}</h3>
               <small>Awaiting next steps</small>
             </div>
           </div>
 
         </div>
 
-        {/* Requests Heading */}
+        {/* REQUESTS HEADING */}
         <div className="dashboard-section-heading">
           <div>
             <h4>My Estimation Requests</h4>
             <p>Track and manage your home service projects.</p>
           </div>
 
-          {!loading && (
-            <span className="request-count">
-              {totalRequests} {totalRequests === 1 ? "Project" : "Projects"}
-            </span>
-          )}
+          <span className="request-count">
+            {totalRequests}{" "}
+            {totalRequests === 1 ? "Project" : "Projects"}
+          </span>
         </div>
 
-        {/* Loading State */}
-        {loading && (
-          <div className="row g-4">
-            {[1, 2, 3, 4].map((item) => (
-              <div className="col-md-6" key={item}>
-                <div className="request-card p-4">
-                  <div className="skeleton skeleton-icon mb-3" />
-                  <div className="skeleton skeleton-title mb-3" />
-                  <div className="skeleton skeleton-text" />
-                  <div className="skeleton skeleton-button mt-4" />
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* Empty State */}
-        {!loading && !error && items.length === 0 && (
+        {/* EMPTY STATE */}
+        {items.length === 0 && (
           <div className="dashboard-empty-state">
             <div className="empty-icon">
               <FaHome />
@@ -270,14 +307,18 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* Request Cards */}
-        {!loading && items.length > 0 && (
+        {/* REQUEST CARDS */}
+        {items.length > 0 && (
           <div className="row g-4">
             {items.map((item) => {
               const status = getStatus(item.status);
+              const quotation = quotations[item._id];
 
               return (
-                <div className="col-md-6 col-xl-4" key={item._id}>
+                <div
+                  className="col-md-6 col-xl-4"
+                  key={item._id}
+                >
                   <div className="request-card">
 
                     <div className="request-card-top">
@@ -320,10 +361,119 @@ export default function DashboardPage() {
                       </Link>
                     </div>
 
+                    {/* QUOTATION DETAILS */}
+                    {quotation && (
+                      <div className="border rounded p-3 mt-3">
+
+                        <div className="d-flex align-items-center gap-2 mb-3">
+                          <FaFileInvoiceDollar className="text-success" />
+
+                          <h6 className="fw-bold mb-0">
+                            Contractor Quotation
+                          </h6>
+                        </div>
+
+                        {item.serviceType === "roofing" && (
+                          <p className="mb-2 small">
+                            <strong>Roof Area:</strong>{" "}
+                            {quotation.measurements?.roofArea ?? "—"} sq. ft.
+                          </p>
+                        )}
+
+                        {item.serviceType === "painting" && (
+                          <p className="mb-2 small">
+                            <strong>Paintable Area:</strong>{" "}
+                            {quotation.paintingMeasurements?.paintableArea ??
+                              quotation.measurements?.verifiedArea ??
+                              "—"} sq. ft.
+                          </p>
+                        )}
+
+                        <p className="mb-2 small">
+                          <strong>Material Cost:</strong>{" "}
+                          ₹{formatCurrency(quotation.material?.cost)}
+                        </p>
+
+                        <p className="mb-2 small">
+                          <strong>Labour Cost:</strong>{" "}
+                          ₹{formatCurrency(quotation.labour?.cost)}
+                        </p>
+
+                        {quotation.paint?.quantityLitres && (
+                          <p className="mb-2 small">
+                            <strong>Paint Required:</strong>{" "}
+                            {quotation.paint.quantityLitres} litres
+                          </p>
+                        )}
+
+                        <hr />
+
+                        <div className="d-flex justify-content-between align-items-center">
+                          <strong>Estimated Total</strong>
+
+                          <h5 className="text-success fw-bold mb-0">
+                            ₹{formatCurrency(quotation.totalCost)}
+                          </h5>
+                        </div>
+
+                        <span className="badge bg-success mt-3">
+                          Quotation Available
+                        </span>
+
+                        {/* DOWNLOAD PDF BUTTON */}
+                        <button
+                          type="button"
+                          className="btn btn-outline-primary btn-sm w-100 mt-3"
+                          onClick={() =>
+                            handleDownloadPDF(quotation._id)
+                          }
+                          disabled={downloadingId === quotation._id}
+                        >
+                          {downloadingId === quotation._id
+                            ? "Generating PDF..."
+                            : "Download Quotation PDF"}
+                        </button>
+
+                      </div>
+                    )}
+
+                    {!quotation && item.status === "quoted" && (
+                      <div className="alert alert-warning mt-3 mb-0 small">
+                        Your request is marked as quoted, but quotation
+                        details could not be loaded.
+                      </div>
+                    )}
+
                   </div>
                 </div>
               );
             })}
+          </div>
+        )}
+
+        {/* QUOTATION SUMMARY */}
+        <div className="dashboard-section-heading mt-5">
+          <div>
+            <h4>My Quotations</h4>
+            <p>Review estimates prepared by your contractors.</p>
+          </div>
+
+          <span className="request-count">
+            {quotationCount}{" "}
+            {quotationCount === 1 ? "Quotation" : "Quotations"}
+          </span>
+        </div>
+
+        {quotationCount === 0 && (
+          <div className="panel p-4 text-center">
+            <FaFileInvoiceDollar className="fs-2 text-secondary mb-2" />
+
+            <h5>No quotations available yet</h5>
+
+            <p className="text-muted mb-0">
+              When a contractor prepares a quotation for your request,
+              it will appear here.
+            </p>
           </div>
         )}
 

@@ -1,10 +1,8 @@
-// import {Link} from 'react-router-dom'; import {useDispatch,useSelector} from 'react-redux'; import {logoutUser} from '../features/auth/authSlice';
-// export default function Navbar(){const {user}=useSelector(s=>s.auth);const dispatch=useDispatch();const logout=async()=>{await dispatch(logoutUser());window.location.href='/';};return <nav className="navbar navbar-dark" style={{background:'#102d4d'}}><div className="container"><Link className="navbar-brand fw-bold" to="/">⌂ Quote Estimator</Link><div className="d-flex gap-3 align-items-center">{user?<><Link className="text-white" to="/dashboard">Dashboard</Link><span className="text-white-50 small">{user.name}</span><button className="btn btn-sm btn-outline-light" onClick={logout}>Logout</button></>:<><Link className="text-white" to="/login">Sign in</Link><Link className="btn btn-sm btn-outline-light" to="/register">Create account</Link></>}</div></div></nav>}
-
 
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
+
 import {
   FaHome,
   FaBars,
@@ -13,7 +11,9 @@ import {
   FaSignOutAlt,
   FaClipboardList,
   FaPlus,
+  FaUserShield,
 } from "react-icons/fa";
+
 import { logoutUser } from "../features/auth/authSlice";
 
 export default function Navbar() {
@@ -42,6 +42,7 @@ export default function Navbar() {
             <span className="brand-icon">
               <FaHome />
             </span>
+
             <span>
               Home<span className="brand-highlight">Estimate</span>
               <small>SMART HOME SERVICE QUOTES</small>
@@ -52,15 +53,41 @@ export default function Navbar() {
           <div className="app-navbar-links">
             {user ? (
               <>
-                <Link to="/dashboard" className="nav-link-custom">
-                  <FaClipboardList />
-                  Dashboard
-                </Link>
+                {user.role === "admin" ? (
+                  <Link
+                    to="/admin"
+                    className="nav-link-custom"
+                  >
+                    <FaUserShield />
+                    Admin Panel
+                  </Link>
+                ) : user.role === "contractor" ? (
+                  <Link
+                    to="/contractor/requests"
+                    className="nav-link-custom"
+                  >
+                    <FaClipboardList />
+                    My Requests
+                  </Link>
+                ) : (
+                  <>
+                    <Link
+                      to="/dashboard"
+                      className="nav-link-custom"
+                    >
+                      <FaClipboardList />
+                      Dashboard
+                    </Link>
 
-                <Link to="/new-estimate" className="nav-create-btn">
-                  <FaPlus />
-                  New Estimate
-                </Link>
+                    <Link
+                      to="/new-estimate"
+                      className="nav-create-btn"
+                    >
+                      <FaPlus />
+                      New Estimate
+                    </Link>
+                  </>
+                )}
 
                 <div className="nav-user">
                   <FaUserCircle />
@@ -108,19 +135,37 @@ export default function Navbar() {
                   <span>{user.name}</span>
                 </div>
 
-                <Link
-                  to="/dashboard"
-                  onClick={() => setMenuOpen(false)}
-                >
-                  <FaClipboardList /> Dashboard
-                </Link>
+                {user.role === "admin" ? (
+                  <Link
+                    to="/admin"
+                    onClick={() => setMenuOpen(false)}
+                  >
+                    <FaUserShield /> Admin Panel
+                  </Link>
+                ) : user.role === "contractor" ? (
+                  <Link
+                    to="/contractor/requests"
+                    onClick={() => setMenuOpen(false)}
+                  >
+                    <FaClipboardList /> My Requests
+                  </Link>
+                ) : (
+                  <>
+                    <Link
+                      to="/dashboard"
+                      onClick={() => setMenuOpen(false)}
+                    >
+                      <FaClipboardList /> Dashboard
+                    </Link>
 
-                <Link
-                  to="/new-estimate"
-                  onClick={() => setMenuOpen(false)}
-                >
-                  <FaPlus /> New Estimate
-                </Link>
+                    <Link
+                      to="/new-estimate"
+                      onClick={() => setMenuOpen(false)}
+                    >
+                      <FaPlus /> New Estimate
+                    </Link>
+                  </>
+                )}
 
                 <button onClick={logout}>
                   <FaSignOutAlt /> Logout
@@ -128,10 +173,17 @@ export default function Navbar() {
               </>
             ) : (
               <>
-                <Link to="/login" onClick={() => setMenuOpen(false)}>
+                <Link
+                  to="/login"
+                  onClick={() => setMenuOpen(false)}
+                >
                   Sign in
                 </Link>
-                <Link to="/register" onClick={() => setMenuOpen(false)}>
+
+                <Link
+                  to="/register"
+                  onClick={() => setMenuOpen(false)}
+                >
                   Create account
                 </Link>
               </>
