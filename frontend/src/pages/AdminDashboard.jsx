@@ -99,36 +99,43 @@ export default function AdminDashboard() {
 
   if (loading) {
     return (
-      <div className="container py-5">
+      <div className="container-fluid py-5 text-center">
         Loading admin dashboard...
       </div>
     );
   }
 
   return (
-    <div className="container py-5">
-      <div className="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4">
+    <div className="container-fluid px-2 px-sm-3 px-md-4 py-3 py-md-4">
+
+      {/* Dashboard Header */}
+      <div className="d-flex justify-content-between align-items-start align-items-sm-center flex-column flex-sm-row gap-3 mb-4">
+
         <div>
           <span className="text-uppercase text-muted small fw-bold">
             Administration
           </span>
 
-          <h2 className="fw-bold mt-2">Admin Dashboard</h2>
+          <h2 className="fw-bold mt-2 mb-2">
+            Admin Dashboard
+          </h2>
 
-          <p className="text-muted">
+          <p className="text-muted mb-0">
             Monitor users, contractors and service requests.
           </p>
         </div>
 
         <button
-          className="btn btn-outline-primary"
+          className="btn btn-outline-primary flex-shrink-0"
           onClick={fetchStats}
         >
           <FaSyncAlt className="me-2" />
           Refresh
         </button>
+
       </div>
 
+      {/* Error Message */}
       {error && (
         <div className="alert alert-danger">
           {error}
@@ -137,16 +144,22 @@ export default function AdminDashboard() {
 
       {stats && (
         <>
-          <div className="row g-4">
+
+          {/* Statistics Cards */}
+          <div className="row g-3 g-md-4">
+
             {statCards.map((card) => (
               <div
                 className="col-12 col-sm-6 col-lg-4"
                 key={card.title}
               >
                 <div className="card border-0 shadow-sm h-100">
-                  <div className="card-body p-4">
-                    <div className="d-flex justify-content-between align-items-center">
-                      <div>
+
+                  <div className="card-body p-3 p-md-4">
+
+                    <div className="d-flex justify-content-between align-items-center gap-2">
+
+                      <div className="overflow-hidden">
                         <p className="text-muted mb-2">
                           {card.title}
                         </p>
@@ -157,19 +170,26 @@ export default function AdminDashboard() {
                       </div>
 
                       <div
-                        className={`bg-${card.color}-subtle text-${card.color} rounded-circle p-3 fs-4`}
+                        className={`bg-${card.color}-subtle text-${card.color} rounded-circle p-3 fs-4 flex-shrink-0`}
                       >
                         {card.icon}
                       </div>
+
                     </div>
+
                   </div>
+
                 </div>
               </div>
             ))}
+
           </div>
 
-          <div className="card border-0 shadow-sm mt-5">
-            <div className="card-body p-4">
+          {/* Platform Overview */}
+          <div className="card border-0 shadow-sm mt-4 mt-md-5">
+
+            <div className="card-body p-3 p-md-4">
+
               <h5 className="fw-bold mb-3">
                 Platform Overview
               </h5>
@@ -185,10 +205,14 @@ export default function AdminDashboard() {
               <p className="text-muted mb-0">
                 Total quotations generated: {stats.totalQuotations}
               </p>
+
             </div>
+
           </div>
+
         </>
       )}
+
     </div>
   );
 }
