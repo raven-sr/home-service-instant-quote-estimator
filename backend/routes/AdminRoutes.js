@@ -12,7 +12,7 @@ const {
   getAllContractors,
   getAllEstimationRequests,
   getAllQuotations,
-} = require("../controllers/adminController");
+} = require("../controllers/AdminController");
 
 // All admin routes require admin authentication
 router.use(protect, authorize("admin"));

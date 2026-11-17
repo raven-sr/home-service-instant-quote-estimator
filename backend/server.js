@@ -122,7 +122,6 @@ app.use("/api/roofing", require("./routes/roofingRoutes"));
 app.use("/api/contractor-requests",require("./routes/contractorRequestRoutes"));
 app.use("/api/painting", require("./routes/paintingRoutes"));
 app.use("/api/quotations", require("./routes/quotationRoutes"));
-app.use("/api/quotations", require("./routes/quotationRoutes"));
 app.use("/api/admin", require("./routes/AdminRoutes"));
 
 // ==========================================
